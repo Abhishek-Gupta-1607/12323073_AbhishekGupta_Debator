@@ -17,7 +17,10 @@ class BaseAgent:
                 azure_endpoint=settings.AZURE_OPENAI_ENDPOINT
             )
         else:
-            self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+            client_kwargs = {"api_key": settings.OPENAI_API_KEY}
+            if settings.OPENAI_BASE_URL:
+                client_kwargs["base_url"] = settings.OPENAI_BASE_URL
+            self.client = AsyncOpenAI(**client_kwargs)
             
     async def generate_response(self, prompt: str, transcript: List[Dict[str, Any]]) -> str:
         messages = [{"role": "system", "content": self.system_prompt}]

@@ -28,7 +28,10 @@ class RoleValidator:
                 azure_endpoint=settings.AZURE_OPENAI_ENDPOINT
             )
         else:
-            self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+            client_kwargs = {"api_key": settings.OPENAI_API_KEY}
+            if settings.OPENAI_BASE_URL:
+                client_kwargs["base_url"] = settings.OPENAI_BASE_URL
+            self.client = AsyncOpenAI(**client_kwargs)
 
     async def validate(self, topic: str, role: str, response_text: str) -> ValidationResult:
         messages = [
