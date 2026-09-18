@@ -49,7 +49,8 @@ class RoleValidator:
             return response.choices[0].message.parsed
         except Exception:
             # Fallback
-            messages[0]["content"] += "\nReturn ONLY valid JSON."
+            schema_json = ValidationResult.model_json_schema()
+            messages[0]["content"] += f"\nReturn ONLY valid JSON matching this schema:\n{json.dumps(schema_json)}"
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,

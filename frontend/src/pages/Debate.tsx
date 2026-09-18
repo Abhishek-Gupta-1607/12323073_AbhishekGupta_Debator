@@ -12,19 +12,73 @@ export default function DebatePage() {
 
   const handleStart = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (topic.length < 10) {
-      setError("Topic must be at least 10 characters");
+    if (!topic.trim()) {
+      setError('Please enter a motion or topic.');
       return;
     }
     setError('');
     setLoading(true);
     setDebateResult(null);
-    
+
     try {
-      const response = await debateApi.startDebate({ topic, mode, rounds });
-      setDebateResult(response.data);
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+      const response = await fetch(`${apiUrl}/debate/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, mode, rounds })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to start debate');
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Failed to read stream');
+      const decoder = new TextDecoder();
+      
+      let currentResult: any = {
+        topic, mode, rounds,
+        transcript: [],
+        execution_trace: []
+      };
+      
+      setDebateResult({...currentResult});
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        
+        // Keep the last partial chunk in the buffer
+        buffer = lines.pop() || '';
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.substring(6));
+              if (data.event === 'trace') {
+                currentResult.execution_trace.push(data.data);
+              } else if (data.event === 'turn') {
+                currentResult.transcript.push(data.data);
+              } else if (data.event === 'verdict') {
+                currentResult.verdict = data.data;
+              } else if (data.event === 'complete') {
+                currentResult.execution_time = data.data.execution_time;
+              } else if (data.event === 'error') {
+                setError(data.data);
+              }
+              setDebateResult({...currentResult});
+            } catch (e) {
+              console.error("Failed to parse chunk", line);
+            }
+          }
+        }
+      }
     } catch (err: any) {
-      setError(err.response?.data?.detail || "An error occurred during the debate.");
+      setError(err.message || "An error occurred during the debate.");
     } finally {
       setLoading(false);
     }
@@ -90,7 +144,7 @@ export default function DebatePage() {
         </div>
       )}
 
-      {loading && (
+      {!debateResult && loading && (
         <div className="flex flex-col items-center justify-center py-32 space-y-6">
           <Loader2 className="w-16 h-16 text-gold animate-spin" />
           <h3 className="text-2xl font-light tracking-widest text-gray-300 animate-pulse">ORCHESTRATING DEBATE...</h3>
@@ -100,14 +154,16 @@ export default function DebatePage() {
         </div>
       )}
 
-      {debateResult && !loading && (
+      {debateResult && (
         <div className="space-y-12">
           <div className="text-center space-y-4 mb-12">
             <h2 className="text-3xl font-bold max-w-3xl mx-auto leading-relaxed">"{debateResult.topic}"</h2>
             <div className="flex justify-center gap-4 text-sm text-gray-400">
               <span className="px-3 py-1 bg-gray-900 rounded-full border border-gray-800">Mode: {debateResult.mode}</span>
               <span className="px-3 py-1 bg-gray-900 rounded-full border border-gray-800">Rounds: {debateResult.rounds}</span>
-              <span className="px-3 py-1 bg-gray-900 rounded-full border border-gray-800">Time: {debateResult.execution_time.toFixed(1)}s</span>
+              {debateResult.execution_time !== undefined && (
+                <span className="px-3 py-1 bg-gray-900 rounded-full border border-gray-800">Time: {debateResult.execution_time.toFixed(1)}s</span>
+              )}
             </div>
           </div>
 

@@ -66,7 +66,8 @@ class BaseAgent:
             return response.choices[0].message.parsed
         except Exception as e:
             # Fallback to JSON mode if parsing fails or model doesn't support structured outputs
-            messages[0]["content"] += "\nReturn ONLY valid JSON matching the required schema."
+            schema_json = schema.model_json_schema()
+            messages[0]["content"] += f"\nReturn ONLY valid JSON matching this schema:\n{json.dumps(schema_json)}"
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
