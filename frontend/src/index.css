@@ -1,6 +1,12 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0f172a;
+  --color-paper: #f8fafc;
+  --color-gold: #d4af37;
+  --color-for: #3b82f6;
+  --color-against: #ef4444;
+}
 
 body {
   @apply bg-ink text-paper font-sans antialiased;
